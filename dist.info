@@ -1,0 +1,44 @@
+type = "x86"
+arch = "Windows"
+author = "Olivine Labs"
+depends = {
+[[lua >= 5.1]],
+[[say >= 1.2]],
+}
+
+desc = "Adds a framework that allows registering new assertions without compromising builtin assertion functionality."
+version = "1.6"
+maintainer = "Peter Drahoš"
+files = {
+Data = {
+[[share\luassert\README.md]],
+[[share\luassert\LICENSE]],
+[[share\luassert\CONTRIBUTING.md]],
+}
+,
+Unspecified = {
+[[lib\lua\luassert\state.lua]],
+[[lib\lua\luassert\util.lua]],
+[[lib\lua\luassert\spy.lua]],
+[[lib\lua\luassert\stub.lua]],
+[[lib\lua\luassert\assert.lua]],
+[[lib\lua\luassert\modifiers.lua]],
+[[lib\lua\luassert\assertions.lua]],
+[[lib\lua\luassert\mock.lua]],
+[[lib\lua\luassert\init.lua]],
+[[lib\lua\luassert\formatters\init.lua]],
+[[lib\lua\luassert\formatters\binarystring.lua]],
+[[lib\lua\luassert\languages\en.lua]],
+[[lib\lua\luassert\languages\ar.lua]],
+[[lib\lua\luassert\languages\fr.lua]],
+[[lib\lua\luassert\languages\nl.lua]],
+[[lib\lua\luassert\languages\ru.lua]],
+[[lib\lua\luassert\languages\ua.lua]],
+[[lib\lua\luassert\languages\zh.lua]],
+}
+,
+}
+
+license = "MIT/X11"
+name = "luassert"
+url = "http://olivinelabs.com/busted/"
