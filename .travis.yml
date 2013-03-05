@@ -1,37 +1,51 @@
-language: erlang
+#
+# LuaDist Travis-CI Hook
+#
 
+# We assume C build environments
+language: C
+
+# Try using multiple Lua Implementations
 env:
-  - LUA=""
-  - LUA="luajit"
+  - TOOL="gcc"                  # Use native compiler (GCC usually)
+  - TOOL="clang"                # Use clang
+  - TOOL="i686-w64-mingw32"     # 32bit MinGW
+  - TOOL="x86_64-w64-mingw32"   # 64bit MinGW
+  - TOOL="arm-linux-gnueabihf"  # ARM hard-float (hf), linux
 
+# Crosscompile builds may fail
+matrix:
+  allow_failures:
+    - env: TOOL="i686-w64-mingw32"
+    - env: TOOL="x86_64-w64-mingw32"
+    - env: TOOL="arm-linux-gnueabihf"
+
+# Install dependencies
+install:
+  - git clone git://github.com/LuaDist/Tools.git ~/_tools
+  - ~/_tools/travis/travis install
+
+# Bootstap
+before_script:
+  - ~/_tools/travis/travis bootstrap
+
+# Build the module
+script:
+  - ~/_tools/travis/travis build
+
+# Execute additional tests or commands
+after_script:
+  - ~/_tools/travis/travis test
+
+# Only watch the master branch
 branches:
   only:
     - master
 
-install:
-  - sudo apt-get install luajit
-  - sudo apt-get install luarocks
-  - sudo luarocks install luafilesystem
-  - git clone git://github.com/Olivine-Labs/say.git
-  - cd say
-  - sudo luarocks make
-  - cd ../
-  - git clone git://github.com/Olivine-Labs/luassert.git
-  - cd luassert
-  - sudo luarocks make
-  - cd ../
-  - git clone git://github.com/Olivine-Labs/busted.git
-  - cd busted
-  - sudo luarocks make
-  - cd ../
-
-script: "sudo luarocks make && busted spec"
-
+# Notify the LuaDist Dev group if needed
 notifications:
-  webhooks:
-    - http://hollow-mountain-1250.herokuapp.com/hubot/travis
   recipients:
-    - engineers@olivinelabs.com
+    - luadist-dev@googlegroups.com
   email:
-    on_success: always
+    on_success: change
     on_failure: always
