@@ -1,8 +1,8 @@
 package = "luassert"
-version = "1.6-1"
+version = "1.7.0-0"
 source = {
-  url = "https://github.com/Olivine-Labs/luassert/archive/v1.6.tar.gz",
-  dir = "luassert"
+  url = "https://github.com/Olivine-Labs/luassert/archive/v1.7.0.tar.gz",
+  dir = "luassert-1.7.0"
 }
 description = {
   summary = "Lua Assertions Extension",
@@ -38,5 +38,6 @@ build = {
     ["luassert.languages.ru"] = "src/languages/ru.lua",
     ["luassert.languages.ua"] = "src/languages/ua.lua",
     ["luassert.languages.zh"] = "src/languages/zh.lua",
+    ["luassert.languages.ja"] = "src/languages/ja.lua",
   }
 }
