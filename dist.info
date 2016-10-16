@@ -1,7 +1,7 @@
 --- This file is part of LuaDist project
 
 name = "luassert"
-version = "1.7"
+version = "1.7.10"
 
 desc = "Adds a framework that allows registering new assertions without compromising builtin assertion functionality."
 author = "Olivine Labs"
