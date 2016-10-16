@@ -1,3 +1,5 @@
+local tablex = require 'pl.tablex'
+
 describe("Test Assertions", function()
   it("Tests backward compatible assert() functionality", function()
     local test = true
@@ -5,28 +7,151 @@ describe("Test Assertions", function()
     local third_arg = "three"
     local fourth_arg = "four"
     one, two, three, four, five = assert(test, message, third_arg, fourth_arg)
-    assert(one == test and two == message and three == third_arg and 
-           four == fourth_arg and five == nil, 
+    assert(one == test and two == message and three == third_arg and
+           four == fourth_arg and five == nil,
            "Expected input values to be outputted as well when an assertion does not fail")
+  end)
+
+  it("Checks asserts can be reused", function()
+    local is_same = assert.is_same
+    local orig_same = tablex.deepcopy(is_same)
+    is_same({}, {})
+    assert.is_same(orig_same, is_same)
   end)
 
   it("Checks to see if tables 1 and 2 are the same", function()
     local table1 = { derp = false}
     local table2 = { derp = false}
     assert.same(table1, table2)
+
+    if type(jit) == "table" then
+      loadstring([[
+        local assert = require 'luassert'
+        assert.same(0ULL, 0)
+        assert.same(0, 0ULL)
+        assert.same({0ULL}, {0})
+        assert.same({0}, {0ULL})
+      ]])()
+    end
   end)
-  
+
+  it("Checks to see if tables 1 and 2 are not the same", function()
+    local table1 = { derp = false}
+    local table2 = { derp = true}
+    assert.is_not.same(table1, table2)
+  end)
+
   it("Checks the same() assertion for tables with protected metatables", function()
     local troubleSomeTable = {}
     setmetatable(troubleSomeTable, {__metatable = 0})
     assert.are.same(troubleSomeTable, troubleSomeTable)
   end)
-  
+
   it("Checks same() assertion to handle nils properly", function()
     assert.is.error(function() assert.same(nil) end)  -- minimum 2 arguments
     assert.same(nil, nil)
     assert.is_not.same("a string", nil)
     assert.is_not.same(nil, "a string")
+  end)
+
+  it("Checks same() assertion ignores __pairs metamethod", function()
+    local t1 = setmetatable({1,2,3}, {__pairs = function(t) return nil end})
+    local t2 = {1,2,3}
+    assert.same(t1, t2)
+    assert.same(t2, t1)
+  end)
+
+  it("Checks same() assertion to handle recursive tables", function()
+    local t1 = { k1 = 1, k2 = 2 }
+    local t2 = { k1 = 1, k2 = 2 }
+    local t3 = { k1 = 1, k2 = 2, k3 = { k1 = 1, k2 = 2, k3 = t2 } }
+    t1.k3 = t1
+    t2.k3 = t2
+
+    assert.same(t1, t2)
+    assert.same(t1, t3)
+    assert.same(t1, t3)
+  end)
+
+  it("Checks same() assertion to handle recursive tables that don't match", function()
+    local t1 = {}
+    local t2 = {}
+    local a = {}
+    local b = {}
+    local c = {}
+    local d = {}
+    t1.k1 = a
+    t2.k1 = b
+    a.k1 = c
+    b.k1 = d
+    c.k2 = a
+    d.k2 = d
+    assert.is_table(t1.k1.k1.k2.k1)
+    assert.is_nil(t2.k1.k1.k2.k1)
+    assert.are_not_same(t1, t2)
+  end)
+
+  it("Checks same() assertion to handle recursive tables that don't match - deeper recursion", function()
+    local cycle_root = {}
+    local cycle_1 = {}
+    local cycle_2 = {}
+    cycle_root.k1 = cycle_1
+    cycle_1.k2 = cycle_2
+    cycle_2.k2 = cycle_root
+
+    local mimic_root = {}
+    local mimic_1 = {}
+    local mimic_2 = {}
+    local mimic_3 = {}
+    local self_ref = {}
+    mimic_root.k1 = mimic_1
+    mimic_1.k2 = mimic_2
+    mimic_2.k2 = mimic_3
+    mimic_3.k1 = self_ref
+    self_ref.k2 = self_ref
+
+    assert.is_table(cycle_root.k1.k2.k2.k1.k2.k2.k1)
+    assert.is_nil(mimic_root.k1.k2.k2.k1.k2.k2.k1)
+    assert.are_not_same(cycle_root, mimic_root)
+  end)
+
+  it("Checks same() assertion to handle recursive tables that don't match - multiple recursions", function()
+    local c1, c2, c3, c4 = {}, {}, {}, {}
+    local m1, m2, m3, m4, m5, m6, m7, m8, m9 = {}, {}, {}, {}, {}, {}, {}, {}, {}
+    local r1, r2, r3 = {}, {}, {}
+
+    r1[1] = r3
+    r2[1] = r2
+    r3[1] = r3
+    c2[1] = r2
+    c3[1] = r2
+    c4[1] = r2
+    m2[1] = r3
+    m3[1] = r3
+    m4[1] = r3
+    m6[1] = r3
+    m7[1] = r3
+    m8[1] = r3
+
+    c1[2] = c2
+    c2[3] = c3
+    c3[3] = c4
+    c4[3] = c1
+
+    m1[2] = m2
+    m2[3] = m3
+    m3[3] = m4
+    m4[3] = m5
+    m5[2] = m6
+    m6[3] = m7
+    m7[3] = m8
+    m8[3] = m9
+    m9[2] = r1
+    r1[3] = r1
+
+    assert.is_table(c1[2][3][3][3][2][3][3][3][2][3][3][3][2])
+    assert.is_nil(m1[2][3][3][3][2][3][3][3][2][3][3][3][2])
+    assert.are_not_same(c1, m1)
   end)
 
   it("Checks to see if tables 1 and 2 are equal", function()
@@ -49,6 +174,32 @@ describe("Test Assertions", function()
     local tablenotunique = {table2,table2}
     assert.is.unique(table1)
     assert.is_not.unique(tablenotunique)
+  end)
+
+  it("Checks near() assertion handles tolerances", function()
+    assert.is.error(function() assert.near(0) end)  -- minimum 3 arguments
+    assert.is.error(function() assert.near(0, 0) end)  -- minimum 3 arguments
+    assert.is.error(function() assert.near('a', 0, 0) end)  -- arg1 must be convertable to number
+    assert.is.error(function() assert.near(0, 'a', 0) end)  -- arg2 must be convertable to number
+    assert.is.error(function() assert.near(0, 0, 'a') end)  -- arg3 must be convertable to number
+    assert.is.near(1.5, 2.0, 0.5)
+    assert.is.near('1.5', '2.0', '0.5')
+    assert.is_not.near(1.5, 2.0, 0.499)
+    assert.is_not.near('1.5', '2.0', '0.499')
+  end)
+
+  it("Checks matches() assertion does string matching", function()
+    assert.is.error(function() assert.matches('.*') end)  -- minimum 2 arguments
+    assert.is.error(function() assert.matches(nil, 's') end)  -- arg1 must be a string
+    assert.is.error(function() assert.matches('s', {}) end)  -- arg2 must be convertable to string
+    assert.is.error(function() assert.matches('s', 's', 's', 's') end)  -- arg3 or arg4 must be a number or nil
+    assert.matches("%w+", "test")
+    assert.has.match("%w+", "test")
+    assert.has_no.match("%d+", "derp")
+    assert.has.match("test", "test", nil, true)
+    assert.has_no.match("%w+", "test", nil, true)
+    assert.has.match("^test", "123 test", 5)
+    assert.has_no.match("%d+", "123 test", '4')
   end)
 
   it("Ensures the is operator doesn't change the behavior of equals", function()
@@ -83,20 +234,6 @@ describe("Test Assertions", function()
     assert.is_not.falsy(function() end)
     assert.is_not.falsy("")
     assert.is.falsy(false)
-  end)
-
-  it("tests the error outputted for same() with multiple arguments, to report the failing value", function()
-    local old_assertformat = assert.format
-    local arg1, arg2
-    assert.format = function(self, args)
-      args = old_assertformat(self, args)
-      arg1 = args[1]
-      arg2 = args[2]
-      return args
-    end
-    pcall(assert.are.same,"ok", "ok","not ok")
-    assert.format = old_assertformat
-    assert.are_not.equal(arg1, arg2)
   end)
 
   it("Ensures the Not operator does change the behavior of equals", function()
@@ -212,6 +349,31 @@ describe("Test Assertions", function()
     assert.has_error(function() assert.is_not_false(false) end)
   end)
 
+  it("Checks '.' chaining of modifiers and assertions", function()
+    assert.is.string("abc")
+    assert.is.True(true)
+    assert.is.Not.string(123)
+    assert.is.Nil(nil)
+    assert.is.Not.Nil({})
+    assert.is.Not.True(false)
+    assert.is.Not.False(true)
+    assert.equals.Not(true, false)
+    assert.equals.Not.Not(true, true)
+    assert.Not.equals.Not(true, true)
+
+    -- verify that failing assertions actually fail
+    assert.has.error(function() assert.is.string(1) end)
+    assert.has.error(function() assert.is.True(false) end)
+    assert.has.error(function() assert.is.Not.string('string!') end)
+    assert.has.error(function() assert.is.Nil({}) end)
+    assert.has.error(function() assert.is.Not.Nil(nil) end)
+    assert.has.error(function() assert.is.Not.True(true) end)
+    assert.has.error(function() assert.is.Not.False(false) end)
+    assert.has.error(function() assert.equals.Not(true, true) end)
+    assert.has.error(function() assert.equals.Not.Not(true, false) end)
+    assert.has.error(function() assert.Not.equals.Not(true, false) end)
+  end)
+
   it("Checks number of returned arguments", function()
     local fn = function()
     end
@@ -241,18 +403,161 @@ describe("Test Assertions", function()
     assert.returned_arguments(3, fn4())
   end)
 
-  it("checks has_error to accept only callable arguments", function()
+  it("Checks has_error to accept only callable arguments", function()
     local t_ok = setmetatable( {}, { __call = function() end } )
     local t_nok = setmetatable( {}, { __call = function() error("some error") end } )
     local f_ok = function() end
     local f_nok = function() error("some error") end
-    
+
     assert.has_error(f_nok)
     assert.has_no_error(f_ok)
     assert.has_error(t_nok)
     assert.has_no_error(t_ok)
   end)
 
+  it("Checks has_error compares error strings", function()
+    assert.has_error(function() error() end)
+    assert.has_error(function() error("string") end, "string")
+  end)
+
+  it("Checks has_error compares error objects", function()
+    local func = function() end
+    assert.has_error(function() error({ "table" }) end, { "table" })
+    assert.has_error(function() error(func) end, func)
+    assert.has_error(function() error(false) end, false)
+    assert.has_error(function() error(true) end, true)
+    assert.has_error(function() error(0) end, 0)
+    assert.has_error(function() error(1.5) end, 1.5)
+    assert.has_error(function() error(10.0^50) end, 10.0^50)
+    assert.has_error(function() error(10.0^-50) end, 10.0^-50)
+    assert.has_no_error(function() error(true) end, 0)
+    assert.has_no_error(function() error(125) end, 1.5)
+  end)
+
+  it("Checks has_error compares error objects with strings", function()
+    local mt = { __tostring = function(t) return t[1] end }
+    assert.has_error(function() error(setmetatable({ "table" }, mt)) end, "table")
+  end)
+
+  it("Checks error_matches to accepts at least 2 arguments", function()
+    assert.has_error(function() assert.error_matches(error) end)
+    assert.has_no_error(function() assert.error_matches(function() error("foo") end, ".*") end)
+  end)
+
+  it("Checks error_matches to accept only callable arguments", function()
+    local t_ok = setmetatable( {}, { __call = function() end } )
+    local t_nok = setmetatable( {}, { __call = function() error("some error") end } )
+    local f_ok = function() end
+    local f_nok = function() error("some error") end
+
+    assert.error_matches(f_nok, ".*")
+    assert.no_error_matches(f_ok, ".*")
+    assert.error_matches(t_nok, ".*")
+    assert.no_error_matches(t_ok, ".*")
+  end)
+
+  it("Checks error_matches compares error strings with pattern", function()
+    assert.error_matches(function() error() end, nil)
+    assert.no_error_matches(function() end, nil)
+    assert.does_error_match(function() error(123) end, "^%d+$")
+    assert.error.matches(function() error("string") end, "^%w+$")
+    assert.matches.error(function() error("string") end, "str", nil, true)
+    assert.matches_error(function() error("123string") end, "^[^0-9]+", 4)
+    assert.has_no_error.match(function() error("123string") end, "123", 4, true)
+    assert.does_not.match_error(function() error("string") end, "^%w+$", nil, true)
+  end)
+
+  it("Checks error_matches does not compare error objects", function()
+    local func = function() end
+    assert.no_error_matches(function() error({ "table" }) end, "table")
+  end)
+
+  it("Checks error_matches compares error objects that are convertible to strings", function()
+    local mt = { __tostring = function(t) return t[1] end }
+    assert.error_matches(function() error(setmetatable({ "table" }, mt)) end, "^table$")
+  end)
+
+  it("Checks register creates custom assertions", function()
+    local say = require("say")
+
+    local function has_property(state, arguments)
+      local property = arguments[1]
+      local table = arguments[2]
+      for key, value in pairs(table) do
+        if key == property then
+          return true
+        end
+      end
+      return false
+    end
+
+    say:set_namespace("en")
+    say:set("assertion.has_property.positive", "Expected property %s in:\n%s")
+    say:set("assertion.has_property.negative", "Expected property %s to not be in:\n%s")
+    assert:register("assertion", "has_property", has_property, "assertion.has_property.positive", "assertion.has_property.negative")
+
+    assert.has_property("name", { name = "jack" })
+    assert.has.property("name", { name = "jack" })
+    assert.not_has_property("surname", { name = "jack" })
+    assert.Not.has.property("surname", { name = "jack" })
+    assert.has_error(function() assert.has_property("surname", { name = "jack" }) end)
+    assert.has_error(function() assert.has.property("surname", { name = "jack" }) end)
+    assert.has_error(function() assert.no_has_property("name", { name = "jack" }) end)
+    assert.has_error(function() assert.no.has.property("name", { name = "jack" }) end)
+  end)
+
+  it("Checks unregister removes assertions", function()
+    assert.has_no_error(function() assert.has_property("name", { name = "jack" }) end)
+
+    assert:unregister("assertion", "has_property")
+
+    assert.has_error(function() assert.has_property("name", { name = "jack" }) end, "luassert: unknown modifier/assertion: 'has_property'")
+  end)
+
+  it("Checks asserts return all their arguments on success", function()
+    assert.is_same({true, "string"}, {assert(true, "string")})
+    assert.is_same({true, "bar"}, {assert.is_true(true, "bar")})
+    assert.is_same({false, "foobar"}, {assert.is_false(false, "foobar")})
+    assert.is_same({"", "truthy"}, {assert.is_truthy("", "truthy")})
+    assert.is_same({nil, "falsy"}, {assert.is_falsy(nil, "falsy")})
+    assert.is_same({true, "boolean"}, {assert.is_boolean(true, "boolean")})
+    assert.is_same({false, "still boolean"}, {assert.is_boolean(false, "still boolean")})
+    assert.is_same({0, "is number"}, {assert.is_number(0, "is number")})
+    assert.is_same({"string", "is string"}, {assert.is_string("string", "is string")})
+    assert.is_same({{}, "empty table"}, {assert.is_table({}, "empty table")})
+    assert.is_same({nil, "string"}, {assert.is_nil(nil, "string")})
+    assert.is_same({{1, 2, 3}, "unique message"}, {assert.is_unique({1, 2, 3}, "unique message")})
+    assert.is_same({"foo", "foo", "bar"}, {assert.is_equal("foo", "foo", "bar")})
+    assert.is_same({"foo", "foo", "string"}, {assert.is_same("foo", "foo", "string")})
+    assert.is_same({0, 1, 2, "message"}, {assert.is_near(0, 1, 2, "message")})
+  end)
+
+  it("Checks assert.has_match returns captures from match on success", function()
+    assert.is_same({"string"}, {assert.has_match("(.*)", "string", "message")})
+    assert.is_same({"s", "n"}, {assert.has_match("(s).*(n)", "string", "message")})
+    assert.is_same({"tri"}, {assert.has_match("tri", "string", "message")})
+    assert.is_same({"ing"}, {assert.has_match("ing", "string", nil, true, "message")})
+    assert.is_same({}, {assert.has_no_match("%d+", "string", "message")})
+    assert.is_same({}, {assert.has_no_match("%d+", "string", nil, true, "message")})
+  end)
+
+  it("Checks assert.has_error returns thrown error on success", function()
+    assert.is_same({"err message", "err message"}, {assert.has_error(function() error("err message") end, "err message")})
+    assert.is_same({"err", "err"}, {assert.has_error(function() error(setmetatable({},{__tostring = function() return "err" end})) end, "err")})
+    assert.is_same({{}, {}}, {assert.has_error(function() error({}) end, {})})
+    assert.is_same({'0', 0}, {assert.has_error(function() error(0) end, 0)})
+    assert.is_same({nil, nil}, {assert.has_error(function() error(nil) end, nil)})
+    assert.is_same({nil, "string"}, {assert.has_no_error(function() end, "string")})
+  end)
+
+  it("Checks assert.error_matches returns captures of thrown error on success", function()
+    assert.is_same({"err", "message"}, {assert.error_matches(function() error("err message") end, "(err) (%w+)$")})
+    assert.is_same({"err"}, {assert.error_matches(function() error(setmetatable({},{__tostring = function() return "err" end})) end, "err", nil, true)})
+    assert.is_same({}, {assert.error_matches(function() error(nil) end, nil)})
+  end)
+
+  it("Checks assert.no_error_matches returns thrown error on success", function()
+    assert.is_same({nil, "string"}, {assert.no_error_matches(function() end, "string")})
+    assert.is_same({"error", "string"}, {assert.no_error_matches(function() error("error") end, "string")})
+  end)
 end)
-
-
